@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    AndroidManifest 通用配置模板
+    ⚠️ 包名需替换为项目实际包名（com.xxx.app → 实际包名）
+
+    构建环境：
+    - JDK 21
+    - Compile SDK 35 / Target SDK 35
+    - Min SDK 23（Android 6.0）
+    - Gradle 8.13 / AGP 8.13.0 / Kotlin 2.2.10
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ==================== 常用权限 ==================== -->
+    <!-- 网络 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <!-- 存储（Android 13+ 细分权限） -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- Android 12 及以下 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+
+    <!-- 相机（按需启用） -->
+<!--    <uses-permission android:name="android.permission.CAMERA" />-->
+
+    <!-- 定位 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 通知（Android 13+） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 前台服务（按需启用） -->
+<!--    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />-->
+
+    <!-- 振动 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!--
+        tools:replace 防止第三方库的 AndroidManifest 合并时覆盖本项目的重要属性
+        只有本项目代码自己配置的值才生效，第三方库无法替换
+    -->
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:largeHeap="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.App"
+        android:localeConfig="@xml/locales_config"
+        android:enableOnBackInvokedCallback="true"
+        android:resizeableActivity="true"
+        tools:replace="android:name,android:allowBackup,android:icon,android:label,android:theme,android:networkSecurityConfig">
+
+        <!--
+            支持的屏幕宽高比范围
+            maxAspectRatio = 2.2：最大比例，覆盖 20:9 全面屏（如三星 S24 = 2.11）
+            不设置 minAspectRatio：默认 1.33（4:3），兼容平板和折叠屏
+            注意：大部分手机比例在 1.78~2.17 之间
+        -->
+        <meta-data android:name="android.max_aspect" android:value="2.2" />
+
+        <!-- FileProvider（拍照/分享文件） -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+</manifest>

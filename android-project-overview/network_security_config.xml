@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    网络安全配置
+    Debug：允许明文 HTTP（测试环境）
+    Release：强制 HTTPS
+-->
+<network-security-config>
+    <!-- Debug 允许明文 HTTP（测试环境） -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+    <!-- Release 强制 HTTPS -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
