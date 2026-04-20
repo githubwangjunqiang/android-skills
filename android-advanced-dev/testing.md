@@ -39,13 +39,14 @@ class UserListViewModelTest {
 
         // When - 触发加载
         viewModel.handleIntent(UserListIntent.LoadData)
-        advanceUntilIdle() // 等待协程执行完毕
+        advanceUntilIdle()
 
-        // Then - 验证状态
+        // Then - 验证状态容器与页面数据
         val state = viewModel.uiState.value
-        assertEquals(2, state.userList.size)
-        assertEquals("张三", state.userList[0].nickname)
-        assertEquals(false, state.isLoadingMore)
+        assertTrue(state.status is MviPageStatus.Content)
+        assertEquals(2, state.data.userList.size)
+        assertEquals("张三", state.data.userList[0].nickname)
+        assertEquals(false, state.data.isLoadingMore)
     }
 
     @Test
@@ -58,13 +59,14 @@ class UserListViewModelTest {
         viewModel.handleIntent(UserListIntent.LoadData)
         advanceUntilIdle()
 
-        // Then - 验证 UIStatus 变为 Error
-        val uiStatus = viewModel.uiStatus.value
-        assertTrue(uiStatus is UIStatus.Error)
+        // Then - 验证页面状态切换为 Error
+        val state = viewModel.uiState.value
+        assertTrue(state.status is MviPageStatus.Error)
+        assertEquals("网络异常", (state.status as MviPageStatus.Error).message)
     }
 
     @Test
-    fun `删除用户后应从列表中移除并发送 Toast 事件`() = runTest {
+    fun `删除用户后应从列表中移除`() = runTest {
         // Given - 先加载列表
         val mockUsers = listOf(
             UserInfoData(userId = "1", nickname = "张三"),
@@ -81,10 +83,9 @@ class UserListViewModelTest {
         viewModel.handleIntent(UserListIntent.Delete("1"))
         advanceUntilIdle()
 
-        // Then - 验证列表更新（删除后只剩1条）
-        assertEquals(1, viewModel.uiState.value.userList.size)
-        assertEquals("2", viewModel.uiState.value.userList[0].userId)
-        // 注意：Toast 直接在 VM 中 .show()，不走 Effect，无需测试
+        // Then - 验证列表更新（删除后只剩 1 条）
+        assertEquals(1, viewModel.uiState.value.data.userList.size)
+        assertEquals("2", viewModel.uiState.value.data.userList[0].userId)
     }
 
     @Test
@@ -99,17 +100,16 @@ class UserListViewModelTest {
         // When - 加载第一页
         viewModel.handleIntent(UserListIntent.LoadData)
         advanceUntilIdle()
-        assertEquals(20, viewModel.uiState.value.userList.size)
+        assertEquals(20, viewModel.uiState.value.data.userList.size)
 
         // When - 加载第二页
         viewModel.handleIntent(UserListIntent.LoadMore)
         advanceUntilIdle()
 
         // Then - 数据追加
-        assertEquals(30, viewModel.uiState.value.userList.size)
-        assertEquals(2, viewModel.uiState.value.pageNo)
-        // 第二页不足 20 条，hasMore 为 false
-        assertEquals(false, viewModel.uiState.value.hasMore)
+        assertEquals(30, viewModel.uiState.value.data.userList.size)
+        assertEquals(2, viewModel.uiState.value.data.pageNo)
+        assertEquals(false, viewModel.uiState.value.data.hasMore)
     }
 }
 ```

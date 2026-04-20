@@ -4,8 +4,9 @@
  * 包含浅色/深色主题色方案定义和应用主题封装
  *
  * 使用前需：
- * 1. 创建 Typography.kt 定义 AppTypography
- * 2. 在 Activity 的 setContent 中包裹 AppTheme
+ * 1. 根据项目设计稿调整颜色和字体体系
+ * 2. 在 Activity / Fragment 的 setContent 中包裹 AppTheme
+ * 3. 本文件已内置 AppTypography，如项目已有 Typography 文件，可按需拆分
  */
 
 package com.xxx.app.ui.theme
@@ -13,13 +14,12 @@ package com.xxx.app.ui.theme
 import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.sp
 
 // ==================== 颜色定义 ====================
 
-// 浅色主题颜色
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
 val Pink80 = Color(0xFFEFB8C8)
@@ -45,7 +44,6 @@ val Pink40 = Color(0xFF7D5260)
  * 实际项目应根据设计稿调整字号、字重
  */
 val AppTypography = androidx.compose.material3.Typography(
-    // 标题样式
     displayLarge = androidx.compose.ui.text.TextStyle(
         fontSize = 57.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
@@ -58,7 +56,6 @@ val AppTypography = androidx.compose.material3.Typography(
         fontSize = 36.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
     ),
-    // 正文样式
     bodyLarge = androidx.compose.ui.text.TextStyle(
         fontSize = 16.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
@@ -71,7 +68,6 @@ val AppTypography = androidx.compose.material3.Typography(
         fontSize = 12.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
     ),
-    // 标签样式
     labelLarge = androidx.compose.ui.text.TextStyle(
         fontSize = 14.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
@@ -88,7 +84,6 @@ val AppTypography = androidx.compose.material3.Typography(
 
 // ==================== 主题色方案 ====================
 
-/** 浅色主题色方案 */
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF6200EE),
     onPrimary = Color.White,
@@ -104,10 +99,8 @@ private val LightColorScheme = lightColorScheme(
     onBackground = Color(0xFF1C1B1F),
     error = Color(0xFFB3261E),
     onError = Color.White,
-    // ... 根据设计稿定义其他颜色
 )
 
-/** 深色主题色方案 */
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
     onPrimary = Purple40,
@@ -130,31 +123,17 @@ private val DarkColorScheme = darkColorScheme(
 /**
  * 应用主题封装
  * 自动跟随系统深色模式
- *
- * 使用方式（在 Activity 的 setContent 中）：
- * ```
- * setContent {
- *     AppTheme {
- *         // 应用内容
- *     }
- * }
- * ```
  */
 @Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // 动态颜色支持（Android 12+）
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (darkTheme) {
-                dynamicDarkColorScheme(context)
-            } else {
-                dynamicLightColorScheme(context)
-            }
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
@@ -172,31 +151,21 @@ fun AppTheme(
 /**
  * 使用规范：
  * 1. 始终使用 MaterialTheme.colorScheme 取色，禁止硬编码颜色
- * 2. 图片适配：深色模式下降低亮度
- * 3. 在 Activity/Fragment 的 setContent 中包裹 AppTheme（不是 Application）
+ * 2. 图片在深色模式下可根据视觉效果适当降低亮度
+ * 3. 在 Activity / Fragment 的 setContent 中包裹 AppTheme，不要在 Application 中调用
  */
 
-// 正确用法示例
 /**
 @Composable
 fun SampleScreen() {
-    // 使用主题颜色
     Text(
         text = "标题",
         color = MaterialTheme.colorScheme.onSurface
     )
 
-    // 使用主题背景
-    Surface(
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        // 内容
-    }
-
-    // 图片深色模式适配
     val alpha = if (isSystemInDarkTheme()) 0.8f else 1f
     Image(
-        painter = painterResource(id = R.drawable.ic_logo),  // 实际项目传入具体资源ID
+        painter = painterResource(id = R.drawable.ic_logo),
         modifier = Modifier.alpha(alpha),
         contentDescription = null
     )

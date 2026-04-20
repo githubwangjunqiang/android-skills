@@ -5,7 +5,8 @@ description: 网络请求架构。OkHttp 扩展函数、请求规范、响应处
 
 # OkHttp 网络请求架构规范
 
-**禁止使用 Retrofit**，使用项目封装的 OkHttp 扩展函数。
+**本 skill 描述的是项目内自定义 OkHttp 调用链。**  
+若项目已有统一网络封装，应优先兼容项目现状；以下示例默认基于当前 skills 的 MVI 体系。
 
 ---
 
@@ -14,13 +15,13 @@ description: 网络请求架构。OkHttp 扩展函数、请求规范、响应处
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  ViewModel                                                  │
-│  ├─ launchTryViewModelScope {                              │
-│  │    HttpCallPool.xxx_url.postCall(Data::class.java) {    │  ← String 扩展函数
-│  │        put("key", value)  // 构建 JSON body             │
-│  │    }                                                     │
-│  │    .loadSuccess { data -> showContent() }                │  ← 链式处理
+│  ├─ launchTryViewModelScope {                               │
+│  │    HttpCallPool.post_login.postCall(Data::class.java) {  │
+│  │        put("key", value)   // 构建 JSON body             │
+│  │    }                                                      │
+│  │    .loadSuccess { data -> showContent { ... } }          │
 │  │    .loadErrorForMsg { msg -> showError(msg) }            │
-│  │  }                                                       │
+│  │  }                                                        │
 └─────────────────────────────────────────────────────────────┘
           │
           ▼
@@ -28,8 +29,8 @@ description: 网络请求架构。OkHttp 扩展函数、请求规范、响应处
 │  BaseHttpManager (String.postCall/getCall/deleteCall)       │
 │  ├─ 自动切换到 IO 线程                                       │
 │  ├─ 自动注入基础参数                                         │
-│  ├─ 自动注入请求头                                          │
-│  ├─ 执行请求 → OkhttpCallDefinite                           │
+│  ├─ 自动注入请求头                                           │
+│  ├─ 执行请求 → OkhttpCallDefinite                            │
 │  ├─ 解析响应 → Gson                                          │
 │  ├─ 异常处理 → OkhttpException                               │
 │  └─ 全局拦截 → HttpErrorManager                              │
@@ -56,26 +57,49 @@ description: 网络请求架构。OkHttp 扩展函数、请求规范、响应处
 
 ```kotlin
 // ⚠️ 包名需替换为项目实际包名
+import com.xxx.app.base.baseui.MviBaseViewModel
 import com.xxx.app.base.http.manager.BaseHttpManager.postCall
-import com.xxx.app.base.http.result.BaseCallReturnData
 import com.xxx.app.manager.https.HttpCallPool
 
-class UserViewModel : BaseViewModel() {
+/** 登录页 Intent */
+sealed interface LoginIntent {
+    /** 提交登录 */
+    data class Submit(val phone: String, val password: String) : LoginIntent
+}
 
-    fun login(phone: String, password: String) {
+/** 登录页数据 */
+data class LoginData(
+    val phone: String = "",
+    val token: String = ""
+)
+
+/** 登录页一次性事件 */
+sealed interface LoginEffect {
+    /** 登录成功后跳转首页 */
+    data object NavigateHome : LoginEffect
+}
+
+class LoginViewModel : MviBaseViewModel<LoginIntent, LoginData, LoginEffect>(LoginData()) {
+
+    override fun handleIntent(intent: LoginIntent) {
+        when (intent) {
+            is LoginIntent.Submit -> login(intent.phone, intent.password)
+        }
+    }
+
+    private fun login(phone: String, password: String) {
         launchTryViewModelScope {
-            showLoadingDialog()
-            
-            HttpCallPool.post_login_url.postCall(LoginResponse::class.java) {
+            showDialogLoading("正在登录...")
+
+            HttpCallPool.post_login.postCall(LoginResponse::class.java) {
                 // lambda 内构建 JSON body
                 put("account", phone)
                 put("password", password)
                 put("type", "ACCOUNT")
             }.apply {
                 loadSuccess { response ->
-                    showContent()
-                    // response.data 是解析后的对象
-                    handleLoginSuccess(response.data)
+                    showContent { old -> old.copy(phone = phone, token = response.data.token) }
+                    sendEffect(LoginEffect.NavigateHome)
                 }
                 loadErrorForMsg { errorMsg ->
                     showError(errorMsg)
@@ -91,16 +115,15 @@ class UserViewModel : BaseViewModel() {
 ```kotlin
 import com.xxx.app.base.http.manager.BaseHttpManager.getCall
 
-fun fetchUserInfo(userId: String) {
+private fun fetchUserInfo(userId: String) {
     launchTryViewModelScope {
-        showLoadingDialog()
-        
+        showFullScreenLoading("正在加载用户信息...")
+
         HttpCallPool.get_user_info.getCall(UserInfoResponse::class.java) {
-            put("userId", userId)  // 添加到 URL query 参数
+            put("userId", userId)
         }.apply {
             loadSuccess { response ->
-                showContent()
-                updateUserInfo(response.data)
+                showContent { old -> old.copy(userInfo = response.data) }
             }
             loadErrorForMsg { errorMsg ->
                 showError(errorMsg)
@@ -115,13 +138,17 @@ fun fetchUserInfo(userId: String) {
 ```kotlin
 import com.xxx.app.base.http.manager.BaseHttpManager.deleteCall
 
-fun deleteUser(userId: String) {
+private fun deleteUser(userId: String) {
     launchTryViewModelScope {
-        HttpCallPool.delete_user_url.deleteCall(BaseResponse::class.java) {
+        HttpCallPool.delete_user.deleteCall(BaseResponse::class.java) {
             put("userId", userId)
         }.apply {
-            loadSuccess { showContent() }
-            loadErrorForMsg { errorMsg -> errorMsg.show() }
+            loadSuccess {
+                showContent { old -> old.copy(deleteSuccess = true) }
+            }
+            loadErrorForMsg { errorMsg ->
+                showError(errorMsg)
+            }
         }
     }
 }
@@ -144,13 +171,12 @@ fun deleteUser(userId: String) {
 ```kotlin
 result.loadSuccess { response ->
     // 成功处理，response.data 已解析
-    updateUI(response.data)
+    showContent { old -> old.copy(userInfo = response.data) }
 }
 
 result.loadErrorForMsg { errorMsg ->
     // 直接显示错误消息（已包含服务器返回的 message）
-    errorMsg.show()
-    showErrorLayout(errorMsg)
+    showError(errorMsg)
 }
 ```
 
@@ -177,30 +203,36 @@ object HttpCallPool {
     const val HTTP_RETURN_CODE = "code"
     const val HTTP_RETURN_CODE_SUCCESS = 200
     const val HTTP_RETURN_MSG = "message"
-    
+
     // 全局错误码
     const val HTTP_CODE_401 = 401       // 需要登录
     const val HTTP_CODE_10039 = 10039   // 被踢下线
-    
+
     // 基础域名（从 BuildConfig 获取）
     var baseUrl = BuildConfig.BaseUrl
-    
-    // ==================== API 定义 ====================
-    
+
     /** 用户登录 */
     val post_login: String
         get() = "$baseUrl/login/third"
-    
+
     /** 用户信息 */
     val get_user_info: String
         get() = "$baseUrl/queryMyself"
-    
+
+    /** 删除用户 */
+    val delete_user: String
+        get() = "$baseUrl/user/delete"
+
+    /** 用户列表 */
+    val get_user_list: String
+        get() = "$baseUrl/user/list"
+
     /** 首页列表 */
     val get_home_list: String
         get() = "$baseUrl/home/list"
-    
+
     /** 动态参数 URL */
-    fun get_roomInfo(roomId: String): String {
+    fun getRoomInfo(roomId: String): String {
         return "$baseUrl/call/roomInfo/$roomId"
     }
 }
@@ -216,17 +248,14 @@ object HttpCallPool {
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        
-        // 初始化网络管理器
+
         BaseHttpManager.initManager(
-            loadHeaderParameter = { url, body, way -> 
-                // 自定义请求头（如 token）
+            loadHeaderParameter = { _, _, _ ->
                 JSONObject().apply {
                     put("Authorization", "Bearer ${loadToken()}")
                 }
             },
-            loadBasicParameters = { url ->
-                // 基础入参（如设备信息）
+            loadBasicParameters = {
                 JSONObject().apply {
                     put("deviceId", loadDeviceId())
                     put("version", BuildConfig.VERSION_NAME)
@@ -234,11 +263,10 @@ class App : Application() {
             },
             mErrorListener = { e ->
                 // 全局错误拦截（401、被踢等）
-                HttpErrorManager.handError(e)
+                HttpErrorManager.handleError(e)
             }
         )
-        
-        // 启动全局错误监听
+
         HttpErrorManager.initContext()
     }
 }
@@ -263,7 +291,7 @@ class App : Application() {
 {
     "code": 200,
     "message": "success",
-    "data": { ... }
+    "data": { }
 }
 ```
 
@@ -318,40 +346,12 @@ OkhttpClientProvider.okhttpManager
 // 超时配置：
 // connectTimeout = 30s
 // readTimeout = 60s
-// writeTimeout = 60s
-// retryOnConnectionFailure = true
 ```
 
 ---
 
-## 十、拦截器扩展
+## 十、注意事项
 
-添加请求结果拦截器（用于日志、监控）：
-
-```kotlin
-BaseHttpManager.addResultInterceptor(object : IResultInterceptor {
-    override suspend fun intercept(
-        url: String,
-        startTime: Long,
-        callHeader: String?,
-        callParams: String?,
-        returnValue: String?,
-        error: Exception?
-    ) {
-        // 记录请求日志
-        Log.d("HTTP", "url=$url, time=${System.currentTimeMillis() - startTime}ms")
-    }
-})
-```
-
----
-
-## 十一、注意事项
-
-| 事项 | 说明 |
-|------|------|
-| **禁止 Retrofit** | 项目已有 OkHttp 封装，Retrofit 注解增加学习成本 |
-| **请求在 IO 线程** | 扩展函数自动切换 `Dispatchers.IO` |
-| **协程取消安全** | 请求中协程取消会抛 `CancellationException`，`loadError` 会跳过 |
-| **全局拦截优先** | 401/被踢由全局处理，业务层 `loadError` 不会触发 |
-| **服务端错误拦截** | 调用 `interceptServiceError()` 后 `loadError` 不触发服务端错误 |
+- 本 skill 假定项目已经有统一的 OkHttp 封装；不要在业务层再次重复造网络基础设施
+- 若项目仍存在旧版 `BaseViewModel` / `showErrorLayout()` 写法，应优先向当前 MVI 基准靠拢
+- 用户可见错误文案应最终资源化，文档中的硬编码仅用于示例说明

@@ -34,7 +34,6 @@ navController.navigate(DetailRoute(id = "123"))
 ### 2.1 Compose 中嵌入传统 View
 
 ```kotlin
-// 如 ExoPlayer、WebView 等
 AndroidView(
     factory = { context -> PlayerView(context) },
     modifier = Modifier.fillMaxSize(),
@@ -86,7 +85,7 @@ fun AppTheme(
 | LazyColumn key | 列表更新时只重组变化的项 | `items(list, key = { it.id })` |
 | remember 缓存 | 避免每次重组重新计算 | `remember(timestamp) { format(timestamp) }` |
 | derivedStateOf | 减少不必要的状态更新 | `derivedStateOf { listState.firstVisibleItemIndex > 0 }` |
-| drawBehind | 替代 background 减少对象创建 | `Modifier.drawBehind { drawRect(color) }` |
+| drawBehind | 适用于自定义绘制背景或减少额外图层 | `Modifier.drawBehind { drawRect(color) }` |
 
 ```kotlin
 // ✅ LazyColumn 必须提供 key
@@ -98,7 +97,7 @@ val formatted = remember(timestamp) { timestamp.format("yyyy-MM-dd") }
 // ✅ derivedStateOf 减少重组
 val showButton by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
 
-// ✅ Modifier.drawBehind 替代 background
+// ✅ 需要自定义绘制时可使用 drawBehind
 Modifier.drawBehind { drawRect(color) }
 ```
 
@@ -117,12 +116,12 @@ Modifier.drawBehind { drawRect(color) }
 
 ## 六、反模式速查
 
-> **详细反模式见 `android-coroutines` skill 的"协程反模式与禁止事项"章节**
+> **详细反模式见 `android-coroutines` skill 的“协程反模式与禁止事项”章节**
 
 | ❌ 反模式 | ✅ 正确替代 |
 |----------|-------------|
 | `GlobalScope.launch` | `viewModelScope.launch` |
-| `Modifier.background(Color)` | `Modifier.drawBehind { drawRect(Color) }` |
+| 在简单静态背景场景滥用 `drawBehind` | 优先 `Modifier.background()`，需要自定义绘制时再用 `drawBehind` |
 | LazyColumn 无 key | `items(list, key = { it.id })` |
-| ViewModel 存 Context | `AndroidViewModel` 或 `SavedStateHandle` |
+| ViewModel 存 Context | `SavedStateHandle`、参数下沉或上层注入 |
 | Repository 返回 LiveData | 返回 `suspend fun` 或 `Flow` |

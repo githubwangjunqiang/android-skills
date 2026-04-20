@@ -18,6 +18,7 @@
 package com.xxx.app.base.coroutines
 
 import android.util.Log
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,17 +29,15 @@ import kotlinx.coroutines.launch
 
 /**
  * 协程提供者单例
- * 提供全局可用的协程作用域（Main 和 IO）
+ * 提供全局可用的协程作用域（UI / IO / CPU）
  */
 object CoroutineProvider {
 
     private const val TAG = "CoroutineProvider"
 
-    // ==================== 全局异常处理器 ====================
-
     /**
      * 全局协程异常处理器
-     * 捕获未处理的协程异常，防止协程崩溃
+     * 捕获未处理的协程异常，防止协程直接崩溃退出
      */
     private val errorHandler = CoroutineExceptionHandler { _, throwable ->
         Log.e(TAG, "协程未捕获异常: ${throwable.message}", throwable)
@@ -46,79 +45,44 @@ object CoroutineProvider {
         // CrashHandler.recordException(throwable)
     }
 
-    // ==================== 协程作用域 ====================
-
-    /**
-     * UI 作用域（主线程）
-     * 用于需要在非生命周期组件中执行 UI 操作的场景
-     * 如：工具类中显示 Toast、更新 UI 状态
-     *
-     * 特性：
-     * - 使用 SupervisorJob：子协程异常不会取消其他子协程
-     * - 使用 Main dispatcher：在主线程执行
-     * - 内置异常处理器：捕获未处理异常
-     */
+    /** UI 作用域（主线程） */
     val uiScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main + errorHandler)
 
-    /**
-     * IO 作用域（后台线程）
-     * 用于需要执行 IO 操作的场景
-     * 如：文件读写、网络请求、数据库操作
-     *
-     * 特性：
-     * - 使用 SupervisorJob：子协程异常不会取消其他子协程
-     * - 使用 IO dispatcher：在 IO 线程池执行
-     * - 内置异常处理器：捕获未处理异常
-     */
+    /** IO 作用域（后台线程） */
     val ioScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + errorHandler)
 
-    /**
-     * 计算作用域（CPU 密集型）
-     * 用于需要执行 CPU 密集型操作的场景
-     * 如：JSON 解析、数据排序、复杂计算
-     */
+    /** CPU 作用域（计算线程） */
     val cpuScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + errorHandler)
-
-    // ==================== 作用域管理 ====================
 
     /**
      * 取消所有全局协程
-     * 通常在 Application.onTerminate() 或特定场景调用
-     * 注意：Android 中 onTerminate 不会被调用，通常不取消全局作用域
+     * 通常仅在特定调试或重置场景下使用
      */
     fun cancelAll() {
         uiScope.cancel("CoroutineProvider cancelled")
         ioScope.cancel("CoroutineProvider cancelled")
-        computeScope.cancel("CoroutineProvider cancelled")
+        cpuScope.cancel("CoroutineProvider cancelled")
         Log.d(TAG, "所有全局协程已取消")
     }
 
     /**
      * 创建新的作用域（用于特定任务组）
-     * 可手动管理取消
-     *
      * @param dispatcher 调度器，默认 IO
-     * @return 新的协程作用域
      */
-    fun createScope(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO): CoroutineScope {
+    fun createScope(dispatcher: CoroutineDispatcher = Dispatchers.IO): CoroutineScope {
         return CoroutineScope(SupervisorJob() + dispatcher + errorHandler)
     }
-
-    // ==================== 安全启动方法 ====================
 
     /**
      * 安全启动 UI 协程
      * 自动包裹 try-catch，防止异常传播
-     *
-     * @param block 协程执行块
-     * @return Job 可用于取消协程
      */
     fun launchUI(block: suspend CoroutineScope.() -> Unit): Job {
         return uiScope.launch {
             try {
                 block()
             } catch (e: Exception) {
-                Log.e(TAG, "UI协程异常: ${e.message}", e)
+                Log.e(TAG, "UI 协程异常: ${e.message}", e)
             }
         }
     }
@@ -126,61 +90,28 @@ object CoroutineProvider {
     /**
      * 安全启动 IO 协程
      * 自动包裹 try-catch，防止异常传播
-     *
-     * @param block 协程执行块
-     * @return Job 可用于取消协程
      */
     fun launchIO(block: suspend CoroutineScope.() -> Unit): Job {
         return ioScope.launch {
             try {
                 block()
             } catch (e: Exception) {
-                Log.e(TAG, "IO协程异常: ${e.message}", e)
+                Log.e(TAG, "IO 协程异常: ${e.message}", e)
             }
         }
     }
+
     /**
-     * 安全启动 IO 协程
+     * 安全启动 CPU 协程
      * 自动包裹 try-catch，防止异常传播
-     *
-     * @param block 协程执行块
-     * @return Job 可用于取消协程
      */
     fun launchCPU(block: suspend CoroutineScope.() -> Unit): Job {
         return cpuScope.launch {
             try {
                 block()
             } catch (e: Exception) {
-                Log.e(TAG, "IO协程异常: ${e.message}", e)
+                Log.e(TAG, "CPU 协程异常: ${e.message}", e)
             }
         }
     }
 }
-
-// ==================== 使用示例 ====================
-
-/**
- * 使用示例：工具类中显示 Toast
- */
-// fun String?.showToast() {
-//     if (this.isNullOrEmpty()) return
-//     CoroutineProvider.launchUI {
-//         Toast.makeText(ContextProvider.get(), this, Toast.LENGTH_SHORT).show()
-//     }
-// }
-
-/**
- * 使用示例：单例缓存管理器
- */
-// object CacheManager {
-//     private val scope = CoroutineProvider.ioScope
-//
-//     fun preload(urls: List<String>) {
-//         scope.launch {
-//             urls.forEach { url ->
-//                 ensureActive()  // 检查取消
-//                 downloadAndCache(url)
-//             }
-//         }
-//     }
-// }

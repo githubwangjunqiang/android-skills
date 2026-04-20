@@ -9,8 +9,20 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -23,15 +35,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 
 /**
  * 全屏加载状态页
- * 居中显示圆形进度条
+ * @param text 可选加载文案，为空时仅显示进度条
  */
 @Composable
-fun LoadingScreen(modifier: Modifier = Modifier) {
+fun LoadingScreen(
+    modifier: Modifier = Modifier,
+    text: String? = null
+) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator()
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            if (!text.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
@@ -47,10 +72,9 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 fun EmptyScreen(
     modifier: Modifier = Modifier,
     msg: String? = null,
-    @DrawableRes iconRes: Int,  // 由调用方传入具体项目的 R.drawable.xxx
+    @DrawableRes iconRes: Int,
     onRetry: (() -> Unit)? = null
 ) {
-    // 整个区域可点击重试
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -62,29 +86,29 @@ fun EmptyScreen(
                 ) else Modifier
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
     ) {
         Image(
             painter = painterResource(id = iconRes),
-            contentDescription = "空数据",
+            contentDescription = "空数据状态图",
             modifier = Modifier.size(120.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = msg ?: "暂无数据",  // 实际项目应使用 stringResource(R.string.empty_data)
+            text = msg ?: "暂无数据",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "点击页面重新加载",  // 实际项目应使用 stringResource
+            text = "点击页面重新加载",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
         if (onRetry != null) {
             Spacer(modifier = Modifier.height(24.dp))
             OutlinedButton(onClick = onRetry) {
-                Text("重新加载")  // 实际项目应使用 stringResource
+                Text("重新加载")
             }
         }
     }
@@ -102,7 +126,7 @@ fun EmptyScreen(
 fun ErrorScreen(
     modifier: Modifier = Modifier,
     msg: String? = null,
-    @DrawableRes iconRes: Int,  // 由调用方传入具体项目的 R.drawable.xxx
+    @DrawableRes iconRes: Int,
     onRetry: (() -> Unit)? = null
 ) {
     Column(
@@ -116,29 +140,29 @@ fun ErrorScreen(
                 ) else Modifier
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
     ) {
         Image(
             painter = painterResource(id = iconRes),
-            contentDescription = "加载失败",
+            contentDescription = "错误状态图",
             modifier = Modifier.size(120.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = msg ?: "加载失败，请重试",  // 实际项目应使用 stringResource(R.string.error_load_failed)
+            text = msg ?: "加载失败，请重试",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "点击页面重新加载",  // 实际项目应使用 stringResource
+            text = "点击页面重新加载",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
         if (onRetry != null) {
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = onRetry) {
-                Text("重新加载")  // 实际项目应使用 stringResource
+                Text("重新加载")
             }
         }
     }

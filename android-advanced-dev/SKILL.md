@@ -109,7 +109,7 @@ Text(text = stringResource(R.string.empty_data))
 
 ## 四、深色模式适配
 
-### 4.1 Application 初始化
+### 4.1 在 `setContent` 中接入主题
 
 ```kotlin
 setContent {
@@ -161,3 +161,4 @@ LazyColumn {
         ItemCard(item, modifier = Modifier.animateItem())
     }
 }
+```

@@ -1,172 +1,163 @@
 ---
 name: android-project-overview
-description: Android 项目总纲。技术栈、编码规范、包结构、MVI 概览。新建项目或了解架构时使用。
+description: Android 项目总纲。定义默认技术路线、强制规范、统一命名基准与 skill 路由。进入项目时优先阅读。
 ---
 
-# Android 项目开发技能规范
+# Android 项目总纲
 
-本文件为 AI 编程工具提供 Android 项目开发规范和技能指导。
-所有生成的代码必须严格遵守本文件及 `skills/` 目录下子文件中的规范。
+本文件是整个 Android skills 体系的统一入口。  
+当其他 skill 与本文件冲突时，以本文件为最高优先级。
 
 ---
 
-## 一、技术栈
+## 一、默认技术路线
 
-- **语言**: Kotlin（非必要不使用 Java）
-- **UI 框架**: Jetpack Compose（Material 3）
-- **架构模式**: MVI（Model-View-Intent）
-- **异步处理**: Kotlin Coroutines + Flow
-- **网络库**: OkHttp3 自定义封装（**禁止 Retrofit**）
-- **图片加载**: Glide（封装调用）
-- **本地缓存**: MMKV + Room
-- **JSON 解析**: Gson
-- **依赖注入**: 手动单例管理
+本项目默认采用以下技术路线：
 
-### 技术选型理由
+- 语言：Kotlin
+- UI：Jetpack Compose 优先，传统 View 仅用于存量页面或互操作场景
+- 架构：MVI
+- 异步：Coroutines + Flow
+- 本地存储：MMKV / Room
+- 网络：项目封装的 OkHttp 调用链
+- 图片加载：项目统一图片加载封装
+- 依赖管理与工程脚本：按项目现有结构接入
 
-| 选择 | 理由 |
-|------|------|
-| OkHttp 而非 Retrofit | 项目已有统一封装；Retrofit 注解增加学习成本 |
-| 手动单例而非 Hilt/Koin | 项目规模适中，DI 学习成本高于收益 |
-| MMKV 而非 SharedPreferences | SP `commit()` 导致 ANR；MMKV 基于 mmap，无 ANR 风险 |
-| MVI 而非 MVVM | 单向数据流更易追踪状态变化 |
+以上为默认路线。若项目已有成熟存量实现，应优先兼容现有实现，而不是强行重构。
 
 ---
 
 ## 二、强制规范
 
-### 2.1 中文注释要求
+以下规则为生成代码时必须优先遵守的强制规范：
 
-**所有代码必须添加中文注释**：
-- **类**：KDoc 注释说明用途
-- **公共方法**：KDoc 包含 `@param`、`@return`
-- **关键逻辑**：行内注释解释意图
-- **常量**：注释说明用途
-- **sealed class 子类**：每个子类注释含义
+### 2.1 统一架构规范
+- 新页面默认按 **Compose + MVI** 组织
+- 优先复用现有基类、状态模型、工具函数
+- 不重复创建与现有体系冲突的基础设施
 
-### 2.2 包结构规范
+### 2.2 代码中文注释规范
+所有生成代码必须包含中文注释，至少满足以下要求：
 
-```
-com.xxx.app/
-├── App.kt                  // Application 入口
-├── base/                   // 基础架构层（跨项目复用）
-│   ├── baseui/             // ViewModel 基类、UIStatus
-│   ├── http/               // 网络层封装
-│   ├── utils/              // 通用工具类
-│   ├── storage/            // MMKV、Room 封装
-│   └── view/               // 自定义 View
-├── manager/                // 全局管理器
-├── ui/                     // Compose UI 层
-│   ├── theme/              // 主题、颜色
-│   ├── components/         // 通用 Compose 组件
-│   └── navigation/         // 导航路由
-├── feature/                // 业务功能模块
-│   └── home/               // 首页（Screen + ViewModel + Repository）
-└── model/                  // 全局数据模型
-    ├── response/           // API 响应基类
-    └── entity/             // Room 实体
-```
+- 类：使用 KDoc 说明用途
+- 公共方法：使用 KDoc 说明作用、参数、返回值
+- 关键逻辑：使用行内中文注释解释意图
+- 常量：说明业务含义
+- sealed class / sealed interface 的子类型：说明状态或事件含义
 
-**关键原则**：
-- `base/` 跨项目可复用
-- `feature/` 按业务分包，模块内聚
-- 业务模型跟随 feature，响应基类放 `model/`
+禁止只写无意义注释，例如：
+- `// 初始化`
+- `// 点击事件`
+- `// 请求接口`
 
-### 2.3 代码风格
+注释应说明“为什么这样做”或“该结构承担什么职责”。
 
-- **缩进**: 4 空格
-- **行宽**: 120 字符
-- **命名**: 类名 PascalCase，函数/变量 camelCase，常量 UPPER_SNAKE_CASE
-- **导入**: 显式导入，禁止通配符
-- **SDK 兼容**: 新 API 用 `Build.VERSION.SDK_INT >= XXX` 守卫（Min SDK 23）
+### 2.3 用户可见文案规范
+- 用户可见文本优先资源化
+- 示例中的硬编码文案仅用于演示结构，落地时应迁移到 `strings.xml`
 
-### 2.4 点击事件防抖规范（强制）
-
-**所有点击事件必须做防抖处理**，避免用户快速点击导致重复操作。
-
-| 场景 | 防抖间隔 | 用法 |
-|------|----------|------|
-| 普通按钮（提交、保存） | 500ms | 默认间隔 |
-| 轻量操作（点赞、收藏） | 200ms | 快响应 |
-| 重操作（支付、下载） | 800ms | 慢响应 |
-
-**传统 View 用法**：
-```kotlin
-// ✅ 正确：使用防抖扩展函数
-btnSubmit.setOnClickListener500 { doSubmit() }
-btnLike.setOnClickListener200 { toggleLike() }
-
-// ❌ 错误：直接 setOnClickListener 可能重复触发
-btnSubmit.setOnClickListener { doSubmit() }
-```
-
-**Compose 用法**：
-```kotlin
-// ✅ 正确：使用 throttleClick Modifier
-Button(
-    onClick = {},
-    modifier = Modifier.throttleClick { viewModel.handleIntent(Submit) }
-)
-
-// ✅ 正确：使用 throttleClick 回调
-Button(onClick = throttleClick { submit() }) { Text("提交") }
-
-// ❌ 错误：直接 onClick 可能重复触发
-Button(onClick = { submit() }) { Text("提交") }
-```
-
-> **防抖实现代码由 AI 自行提供**（OnClickDelayListener、throttleClick Modifier）
-
-### 2.5 依赖管理
-
-使用 Gradle Version Catalog (`libs.versions.toml`)，版本见 `references/dependencies.md`。
+### 2.4 命名与风格规范
+- 类名：PascalCase
+- 函数 / 变量：camelCase
+- 常量：UPPER_SNAKE_CASE
+- 缩进：4 空格
+- 导入：显式导入，避免通配符导入
 
 ---
 
-## 三、MVI 架构概览
+## 三、统一命名与实现基准
 
-**数据流**：View → Intent → ViewModel → State/Effect → View
+生成代码时默认遵循以下基准：
 
-| 组件 | 说明 |
-|------|------|
-| Intent | 用户意图（sealed interface） |
-| State | 页面状态（data class） |
-| Effect | 一次性事件（导航、Toast） |
-| ViewModel | 处理 Intent，更新 State/Effect |
+- ViewModel 基类：`MviBaseViewModel`
+- 页面状态容器：`MviUiState<T>`
+- 页面状态类型：`MviPageStatus`
+- 状态更新入口：`setState { ... }`
+- 页面状态处理方式：以 `android-mvi-compose/MviInfrastructure.kt` 当前定义为准
 
-> **完整实现见 `android-mvi-compose` 技能**
+除非项目内已有明确存量实现，否则禁止混用以下旧命名：
 
----
+- `BaseViewModel`
+- `UIStatus`
+- `showLoadingView()`
+- `showErrorLayout()`
 
-## 四、AndroidManifest 配置
-
-**构建环境**：JDK 21 / Compile SDK 35 / Target SDK 35 / **Min SDK 23**
-
-> **完整配置见附属文件**：
-> - [AndroidManifest.xml](AndroidManifest.xml) — 主配置模板
-> - [network_security_config.xml](network_security_config.xml) — 网络安全配置
-> - [file_paths.xml](file_paths.xml) — FileProvider 路径
+如果多个 skill 中出现旧写法与新写法冲突，优先采用本节定义的统一基准。
 
 ---
 
-## 五、buildSrc 构建工具
+## 四、最高优先级依赖来源
 
-`buildSrc/` 提供版本管理和 APK 上传能力：
-- **VersionConfig** — 版本号自增管理
-- **ApkUpLoadUtils** — 蒲公英上传
+以下文件是对应能力的优先参考来源：
 
-> **详细说明见 `android-build-publish` 技能**
+1. 页面状态管理：`android-mvi-compose/MviInfrastructure.kt`
+2. Compose 状态页组件：`android-mvi-compose/ComposeStatusComponents.kt`
+3. ViewModel 协程扩展：`android-utils-core/data-flow-tools.md`
+4. 非生命周期组件协程：`android-coroutines/SKILL.md`
+5. 本地存储：`android-local-storage/SKILL.md`
+6. 工具类扩展：`android-utils-core/SKILL.md`
+
+如果示例代码与这些文件的当前定义不一致，以这些优先来源为准。
 
 ---
 
-## 六、Skills 文件索引
+## 五、Skill 路由
 
-| 技能 | 内容 |
-|------|------|
-| `android-mvi-compose` | MVI 模板、Compose 页面、状态页组件、屏幕适配 |
-| `android-local-storage` | MMKV、Room、存储选型 |
-| `android-utils-core` | Toast、JSON、时间、图片加载、日志、权限 |
-| `android-coroutines` | 协程提供者、作用域管理、安全启动方法 |
-| `android-advanced-dev` | Repository、异常处理、多语言、深色模式、测试 |
-| `android-build-publish` | buildSrc、版本管理、蒲公英上传 |
-| `android-legacy-view` | Activity 启动模板、传统 View 状态页 |
+按任务选择 skill：
+
+- 新建 Compose 页面 / ViewModel / 状态页：`android-mvi-compose`
+- 协程、线程切换、非生命周期任务：`android-coroutines`
+- ViewModel 协程扩展、Flow 工具：`android-utils-core`
+- 本地存储（MMKV / Room）：`android-local-storage`
+- 网络请求接入：`android-network`
+- Repository / 崩溃处理 / 国际化 / 深色模式 / 测试：`android-advanced-dev`
+- 传统 View / Activity 模板 / 互操作：`android-legacy-view`
+- 构建与发布：`android-build-publish`
+
+---
+
+## 六、规则分级说明
+
+### 6.1 强制
+必须遵守的项目规范：
+- Compose + MVI 为默认新页面方案
+- 使用统一状态模型与统一命名基准
+- 生成代码必须补充有效中文注释
+
+### 6.2 推荐
+默认应优先遵守：
+- 优先复用已有工具函数和模板
+- 用户可见文案资源化
+- 公共能力沉淀到对应 skill，而不是散落在业务代码中
+
+### 6.3 项目专用
+以下内容默认视为项目策略，不应无条件推广到所有 Android 项目：
+- 禁用 Retrofit
+- 指定发布平台或打包流程
+- 特定包结构
+- 特定构建 task 命名
+- 特定日志、上传、发版体系
+
+---
+
+## 七、使用原则
+
+1. 先看总纲，再进入对应子 skill
+2. 总纲负责方向、优先级和裁决，不重复展开细节实现
+3. 子 skill 负责模板、示例和专项规范
+4. 若多个 skill 示例不一致，优先采用“统一命名与实现基准”
+5. 若示例明显属于旧体系，应按当前主架构修正后再使用
+
+---
+
+## 八、边界说明
+
+本文件不提供以下内容的完整实现，具体请查看对应 skill：
+
+- 完整页面模板
+- 完整网络封装
+- 完整 Room / MMKV 工具
+- 完整发布脚本
+- 完整 Manifest / 资源模板
+
+总纲只负责定义方向、优先级、约束和路由关系。

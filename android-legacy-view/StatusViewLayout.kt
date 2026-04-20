@@ -9,11 +9,13 @@ package com.xxx.app.base.view
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.View
 import android.view.animation.AlphaAnimation
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 
 /**
  * 状态页容器（传统 View）
@@ -27,8 +29,8 @@ import android.widget.TextView
  * 用法（代码）：
  * statusView.showLoading()
  * statusView.showContent()
- * statusView.showEmpty("暂无数据") { retryLoad() }
- * statusView.showError("加载失败") { retryLoad() }
+ * statusView.showEmpty(getString(R.string.empty_data)) { retryLoad() }
+ * statusView.showError(getString(R.string.load_failed)) { retryLoad() }
  */
 class StatusViewLayout @JvmOverloads constructor(
     context: Context,
@@ -82,17 +84,18 @@ class StatusViewLayout @JvmOverloads constructor(
 
     /**
      * 显示错误状态
-     * @param msg 错误提示文案
+     * @param msg 错误提示文案，建议传入 string 资源解析结果
      * @param onRetry 点击重试回调
      */
-    fun showError(msg: String? = "加载失败，点击重试", onRetry: (() -> Unit)? = null) {
+    fun showError(msg: String? = null, onRetry: (() -> Unit)? = null) {
+        val displayMsg = msg ?: "加载失败，点击重试"
         if (currentStatus == Status.ERROR) return
         hideAllStatusViews()
         if (errorView == null) {
-            errorView = createStatusView(msg ?: "加载失败，点击重试")
+            errorView = createStatusView(displayMsg)
             addView(errorView)
         } else {
-            errorView?.findViewById<TextView>(android.R.id.text1)?.text = msg
+            errorView?.findViewById<TextView>(android.R.id.text1)?.text = displayMsg
         }
         onRetry?.let { retry -> errorView?.setOnClickListener { retry() } }
         errorView?.fadeIn()
@@ -103,17 +106,18 @@ class StatusViewLayout @JvmOverloads constructor(
 
     /**
      * 显示空数据状态
-     * @param msg 空状态提示文案
+     * @param msg 空状态提示文案，建议传入 string 资源解析结果
      * @param onRetry 点击重试回调
      */
-    fun showEmpty(msg: String? = "暂无数据", onRetry: (() -> Unit)? = null) {
+    fun showEmpty(msg: String? = null, onRetry: (() -> Unit)? = null) {
+        val displayMsg = msg ?: "暂无数据"
         if (currentStatus == Status.EMPTY) return
         hideAllStatusViews()
         if (emptyView == null) {
-            emptyView = createStatusView(msg ?: "暂无数据")
+            emptyView = createStatusView(displayMsg)
             addView(emptyView)
         } else {
-            emptyView?.findViewById<TextView>(android.R.id.text1)?.text = msg
+            emptyView?.findViewById<TextView>(android.R.id.text1)?.text = displayMsg
         }
         onRetry?.let { retry -> emptyView?.setOnClickListener { retry() } }
         emptyView?.fadeIn()
@@ -125,12 +129,14 @@ class StatusViewLayout @JvmOverloads constructor(
     /** 创建状态提示视图（居中文字） */
     private fun createStatusView(msg: String): View {
         return TextView(context).apply {
+            id = android.R.id.text1
             text = msg
             gravity = android.view.Gravity.CENTER
             textSize = 14f
-            setTextColor(0xFF999999.toInt())
+            setTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            setPadding(32, 32, 32, 32)
+            val padding = 16.dp()
+            setPadding(padding, padding, padding, padding)
         }
     }
 
@@ -153,16 +159,23 @@ class StatusViewLayout @JvmOverloads constructor(
 
     /** 淡入动画 */
     private fun View.fadeIn() {
-        this.visibility = View.VISIBLE
-        this.startAnimation(AlphaAnimation(0f, 1f).apply { duration = animDuration })
+        visibility = View.VISIBLE
+        startAnimation(AlphaAnimation(0f, 1f).apply { duration = animDuration })
     }
 
     /** 淡出动画 */
     private fun View.fadeOut() {
-        if (this.visibility != View.VISIBLE) return
-        this.startAnimation(AlphaAnimation(1f, 0f).apply { duration = animDuration })
-        this.visibility = View.GONE
+        if (visibility != View.VISIBLE) return
+        startAnimation(AlphaAnimation(1f, 0f).apply { duration = animDuration })
+        visibility = View.GONE
     }
+
+    /** dp 转 px */
+    private fun Int.dp(): Int = TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_DIP,
+        this.toFloat(),
+        resources.displayMetrics
+    ).toInt()
 
     /** 状态变化监听器 */
     interface StatusListener {

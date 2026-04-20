@@ -24,6 +24,11 @@
 /**
  * 用户列表页面
  * 集成了响应式布局 ResponsiveScaffold，确保屏幕适配
+ *
+ * 依赖前提：
+ * 1. ViewModel 基类与状态模型来自 MviInfrastructure.kt
+ * 2. LoadingScreen / ErrorScreen / EmptyScreen / LoadingDialog 来自 ComposeStatusComponents.kt
+ * 3. ResponsiveScaffold / AppTopBar 来自 compose-components.md
  * ⚠️ 包名需替换为项目实际包名
  */
 @Composable
@@ -32,25 +37,28 @@ fun UserListScreen(
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
-    // 1. 状态和 Effect 的监听代码
+    // 1. 监听状态
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val pageData = state.data // 页面专属数据
+    val pageData = state.data
 
+    // 2. 监听一次性 Effect
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 is UserListEffect.NavigateToDetail -> onNavigateToDetail(effect.userId)
                 is UserListEffect.NavigateBack -> onNavigateBack()
-                is UserListEffect.ScrollToTop -> { /* 滚动到顶部 */ }
+                is UserListEffect.ScrollToTop -> {
+                    // 在这里处理滚动到顶部逻辑
+                }
             }
         }
     }
 
+    // 3. 首次进入页面时加载数据
     LaunchedEffect(Unit) {
         viewModel.handleIntent(UserListIntent.LoadData)
     }
 
-    // 2. 使用 ResponsiveScaffold 作为页面根布局，自动处理屏幕适配
     ResponsiveScaffold(
         topBar = {
             AppTopBar(
@@ -58,35 +66,32 @@ fun UserListScreen(
                 onBack = onNavigateBack
             )
         }
-    ) { padding -> // ResponsiveScaffold 会提供正确的内边距
-
-        // 3. Box 用于处理 DialogLoading 的叠加
+    ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding) // 使用来自 Scaffold 的 padding
+                .padding(padding)
         ) {
-            // 4. 根据页面状态显示不同内容
             when (val status = state.status) {
                 is MviPageStatus.Content,
-                is MviPageStatus.DialogLoading -> UserListContent( // DialogLoading时也显示内容
+                is MviPageStatus.DialogLoading -> UserListContent(
                     pageData = pageData,
                     onIntent = viewModel::handleIntent
                 )
                 is MviPageStatus.FullScreenLoading -> LoadingScreen(text = status.text)
                 is MviPageStatus.Error -> ErrorScreen(
                     msg = status.message,
-                    iconRes = status.icon ?: R.drawable.ic_error_default,  // ⚠️ 需替换为项目实际资源
+                    iconRes = status.icon ?: R.drawable.ic_error_default,
                     onRetry = { viewModel.handleIntent(UserListIntent.LoadData) }
                 )
                 is MviPageStatus.Empty -> EmptyScreen(
                     msg = status.message,
-                    iconRes = status.icon ?: R.drawable.ic_empty_default,  // ⚠️ 需替换为项目实际资源
+                    iconRes = status.icon ?: R.drawable.ic_empty_default,
                     onRetry = { viewModel.handleIntent(UserListIntent.LoadData) }
                 )
             }
 
-            // 5. 单独处理 DialogLoading 的叠加显示
+            // DialogLoading 需要在内容层之上额外叠加弹窗
             if (state.status is MviPageStatus.DialogLoading) {
                 LoadingDialog(msg = (state.status as MviPageStatus.DialogLoading).text)
             }
@@ -132,7 +137,7 @@ fun UserListContent(modifier: Modifier = Modifier) {
 ```kotlin
 @Composable
 fun UserListScreen() {
-    Scaffold { padding ->  // 第一层 padding
+    Scaffold { padding ->
         UserListContent(Modifier.padding(padding))
     }
 }
@@ -140,7 +145,7 @@ fun UserListScreen() {
 @Composable
 fun UserListContent(modifier: Modifier) {
     // ❌ 错误：子组件又嵌套 Scaffold
-    Scaffold(modifier = modifier) { innerPadding ->  // 第二层 padding，导致边距翻倍
+    Scaffold(modifier = modifier) { innerPadding ->
         LazyColumn(modifier = Modifier.padding(innerPadding)) { }
     }
 }
