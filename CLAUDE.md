@@ -64,3 +64,8 @@ cp -R . ~/.claude/skills/
 - 避免跨包依赖，除非多个 skill 真正共享同一参考
 - 更新示例时保持片段自包含且可直接复制粘贴
 - 新增测试指导应放在相关 skill 附近（如 `android-advanced-dev/testing.md`）
+
+## Skills 多端同步说明
+
+本仓库中的 skill 目录映射与同步策略记录在 `SKILL_SYNC_MAP.md`。
+后续如果重构或更新 skill，必须先修改本仓库，再按该文件同步到 `~/.claude/skills`、`~/.codex/skills`、`~/.config/opencode/skills` 与 `~/.agents/skills`。

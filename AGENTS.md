@@ -24,3 +24,7 @@ Current Git history uses short, imperative commit messages, e.g. `Initial commit
 
 ## Contributor Notes
 Avoid introducing cross-package dependencies unless multiple skills truly share the same reference. Prefer small, focused edits within a single skill directory.
+
+## Multi-Tool Skill Sync
+Use `SKILL_SYNC_MAP.md` as the source of truth for local skill directories. Update this repo first, then sync changes to the mapped local tool directories rather than editing those copies directly.
+
