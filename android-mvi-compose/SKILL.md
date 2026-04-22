@@ -11,7 +11,7 @@ description: MVI 架构与 Compose 核心规范。创建页面、编写 ViewMode
 
 ## 一、MVI 基础设施
 
-### 2.1 核心概念
+### 1.1 核心概念
 
 | 组件 | 说明 |
 |------|------|
@@ -19,7 +19,7 @@ description: MVI 架构与 Compose 核心规范。创建页面、编写 ViewMode
 | `MviUiState<T>` | 通用状态容器（status + data） |
 | `MviBaseViewModel` | ViewModel 基类 |
 
-### 2.2 状态类型
+### 1.2 状态类型
 
 - `Content` — 内容正常显示
 - `FullScreenLoading` — 全屏加载
@@ -28,6 +28,19 @@ description: MVI 架构与 Compose 核心规范。创建页面、编写 ViewMode
 - `Empty` — 空状态
 
 > **完整基类实现见 [MviInfrastructure.kt](MviInfrastructure.kt)**
+
+---
+
+## 二、点击防抖处理（强制规范）
+
+**⚠️ 所有点击事件必须使用防抖处理**，默认 500ms 内重复点击只响应第一次。
+
+| 组件类型 | 防抖方式 |
+|----------|----------|
+| Modifier（Column/Box 等） | `Modifier.throttleClick(onClick = {...})` |
+| Button/IconButton | `onClick = rememberThrottleOnClick(onClick = {...})` |
+
+> **防抖 Modifier 和函数定义见 [ComposeStatusComponents.kt](ComposeStatusComponents.kt)**
 
 ---
 
@@ -113,10 +126,15 @@ class UserListViewModel : MviBaseViewModel<UserListIntent, UserListData, UserLis
 
 ## 六、页面状态渲染示例
 
+> **⚠️ 示例中省略了防抖处理，实际使用时必须添加**
+> 参见 [compose-page-templates.md](compose-page-templates.md) 的完整模板
+
 ```kotlin
 @Composable
 fun UserListPage(viewModel: UserListViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // ⚠️ 实际使用时需添加防抖：rememberThrottleOnClick
+    val throttledRetry = rememberThrottleOnClick(onClick = { viewModel.handleIntent(UserListIntent.LoadData) })
 
     when (uiState.status) {
         MviPageStatus.Content -> UserListContent(uiState.data)
@@ -124,11 +142,13 @@ fun UserListPage(viewModel: UserListViewModel = viewModel()) {
         MviPageStatus.DialogLoading -> LoadingDialog(uiState.status.text)
         is MviPageStatus.Error -> ErrorScreen(
             msg = uiState.status.message,
-            onRetry = { viewModel.handleIntent(UserListIntent.LoadData) }
+            iconRes = R.drawable.ic_error_default,
+            onRetry = throttledRetry
         )
         is MviPageStatus.Empty -> EmptyScreen(
             msg = uiState.status.message,
-            onRetry = { viewModel.handleIntent(UserListIntent.LoadData) }
+            iconRes = R.drawable.ic_empty_default,
+            onRetry = throttledRetry
         )
     }
 }
@@ -144,7 +164,7 @@ fun UserListPage(viewModel: UserListViewModel = viewModel()) {
 | [compose-components.md](compose-components.md) | ResponsiveScaffold + 通用 UI 组件 | 屏幕适配、使用 TopBar/弹窗等组件 |
 | [compose-guidelines.md](compose-guidelines.md) | Navigation + 性能优化 + 数据流 | 开发规范和性能优化 |
 | [MviInfrastructure.kt](MviInfrastructure.kt) | MVI 基类实现 | 复制 ViewModel 基类代码 |
-| [ComposeStatusComponents.kt](ComposeStatusComponents.kt) | 状态页组件实现 | 复制 Loading/Empty/Error 组件 |
+| [ComposeStatusComponents.kt](ComposeStatusComponents.kt) | 状态页组件 + 防抖点击 Modifier | 复制 Loading/Empty/Error 组件和防抖处理 |
 
 **创建 Compose 页面的推荐流程**：
 1. 先看 `compose-page-templates.md` 复制页面模板

@@ -3,12 +3,14 @@
  * ⚠️ 包名需替换为项目实际包名
  * 例如：com.xxx.app → com.yourcompany.yourapp
  */
-package com.xxx.app.base.baseui
+package com.xxx.app.base.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 /**
  * MVI 页面通用状态的密封接口
@@ -62,6 +64,21 @@ abstract class MviBaseViewModel<I, S, E>(initialData: S) : ViewModel() {
 
     /** 唯一意图入口 */
     abstract fun handleIntent(intent: I)
+
+    /**
+     * 在 viewModelScope 中启动协程，自动处理异常
+     * @param block 协程执行体
+     */
+    protected fun launchTryViewModelScope(block: suspend CoroutineScope.() -> Unit) {
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (e: Exception) {
+                // 异常处理：显示错误状态
+                showError(e.message ?: "未知错误")
+            }
+        }
+    }
 
     /**
      * 更新状态的唯一入口，保证状态修改的可控性

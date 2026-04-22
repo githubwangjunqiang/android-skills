@@ -87,7 +87,7 @@ fun ResponsiveScaffold(
 }
 ```
 
-### 1.4 开发技巧
+### 1.3 开发技巧
 
 ```kotlin
 // ✅ 直接使用设计稿标注值
@@ -131,6 +131,11 @@ fun MainScreen() {
 
 ## 二、通用 UI 组件
 
+> **⚠️ 所有点击事件必须使用防抖处理**
+> 防抖 Modifier 和函数定义见 [ComposeStatusComponents.kt](ComposeStatusComponents.kt)
+> - Modifier 使用 `Modifier.throttleClick(onClick = {...})`
+> - Button/IconButton 使用 `rememberThrottleOnClick(onClick = {...})`
+
 ### 2.1 通用 TopBar
 
 ```kotlin
@@ -145,11 +150,12 @@ fun AppTopBar(
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
+    val throttledBack = if (onBack != null) rememberThrottleOnClick(onClick = onBack) else null
     CenterAlignedTopAppBar(
         title = { Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = {
-            if (onBack != null) {
-                IconButton(onClick = onBack) {
+            if (throttledBack != null) {
+                IconButton(onClick = throttledBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                 }
             }
@@ -175,12 +181,14 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val throttledConfirm = rememberThrottleOnClick(onClick = { onConfirm(); onDismiss() })
+    val throttledDismiss = rememberThrottleOnClick(onClick = onDismiss)
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = throttledDismiss,
         title = { Text(title) },
         text = { Text(content) },
-        confirmButton = { TextButton(onClick = { onConfirm(); onDismiss() }) { Text(confirmText) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(cancelText) } }
+        confirmButton = { TextButton(onClick = throttledConfirm) { Text(confirmText) } },
+        dismissButton = { TextButton(onClick = throttledDismiss) { Text(cancelText) } }
     )
 }
 ```
@@ -227,6 +235,7 @@ fun SearchBar(
     onSearch: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val throttledClear = rememberThrottleOnClick(onClick = { onQueryChange("") })
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
@@ -235,7 +244,7 @@ fun SearchBar(
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
         trailingIcon = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+                IconButton(onClick = throttledClear) {
                     Icon(Icons.Default.Clear, contentDescription = "清除")
                 }
             }

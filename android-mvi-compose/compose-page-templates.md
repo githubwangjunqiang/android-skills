@@ -20,6 +20,11 @@
 
 ## 二、页面模板（使用 ResponsiveScaffold）
 
+> **⚠️ 所有点击事件必须使用防抖处理**
+> 防抖 Modifier 和函数定义见 [ComposeStatusComponents.kt](ComposeStatusComponents.kt)
+> - Modifier 使用 `Modifier.throttleClick(onClick = {...})`
+> - Button/IconButton 使用 `rememberThrottleOnClick(onClick = {...})`
+
 ```kotlin
 /**
  * 用户列表页面
@@ -29,6 +34,7 @@
  * 1. ViewModel 基类与状态模型来自 MviInfrastructure.kt
  * 2. LoadingScreen / ErrorScreen / EmptyScreen / LoadingDialog 来自 ComposeStatusComponents.kt
  * 3. ResponsiveScaffold / AppTopBar 来自 compose-components.md
+ * 4. throttleClick / rememberThrottleOnClick 来自 ComposeStatusComponents.kt
  * ⚠️ 包名需替换为项目实际包名
  */
 @Composable
@@ -41,8 +47,15 @@ fun UserListScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val pageData = state.data
 
-    // 2. 监听一次性 Effect
+    // 2. 防抖回调封装
+    val throttledNavigateBack = rememberThrottleOnClick(onClick = onNavigateBack)
+    val throttledLoadData = rememberThrottleOnClick(onClick = { viewModel.handleIntent(UserListIntent.LoadData) })
+
+    // 3. 合并监听：Effect + 首次加载数据
     LaunchedEffect(Unit) {
+        // 首次进入页面时加载数据
+        viewModel.handleIntent(UserListIntent.LoadData)
+        // 监听一次性 Effect
         viewModel.effect.collect { effect ->
             when (effect) {
                 is UserListEffect.NavigateToDetail -> onNavigateToDetail(effect.userId)
@@ -54,16 +67,11 @@ fun UserListScreen(
         }
     }
 
-    // 3. 首次进入页面时加载数据
-    LaunchedEffect(Unit) {
-        viewModel.handleIntent(UserListIntent.LoadData)
-    }
-
     ResponsiveScaffold(
         topBar = {
             AppTopBar(
                 title = "用户列表",
-                onBack = onNavigateBack
+                onBack = throttledNavigateBack
             )
         }
     ) { padding ->
@@ -82,12 +90,12 @@ fun UserListScreen(
                 is MviPageStatus.Error -> ErrorScreen(
                     msg = status.message,
                     iconRes = status.icon ?: R.drawable.ic_error_default,
-                    onRetry = { viewModel.handleIntent(UserListIntent.LoadData) }
+                    onRetry = throttledLoadData
                 )
                 is MviPageStatus.Empty -> EmptyScreen(
                     msg = status.message,
                     iconRes = status.icon ?: R.drawable.ic_empty_default,
-                    onRetry = { viewModel.handleIntent(UserListIntent.LoadData) }
+                    onRetry = throttledLoadData
                 )
             }
 
